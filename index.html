@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Survey Boat Dashboard</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel&family=Nunito&display=swap" rel="stylesheet">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      margin:0;
+      font-family: 'Nunito', sans-serif;
+      background: linear-gradient(to bottom, #001f3f, #0074D9);
+      color:white;
+    }
+
+    h1 {
+      font-family: 'Cinzel', serif;
+      text-align:center;
+      padding:10px;
+    }
+
+    .container {
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      padding:10px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.1);
+      padding:10px;
+      border-radius:10px;
+    }
+
+    #map { height:300px; }
+
+    table {
+      width:100%;
+      border-collapse: collapse;
+    }
+
+    td, th {
+      border:1px solid white;
+      padding:5px;
+      text-align:center;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>🚢 Survey Boat Dashboard</h1>
+
+<div class="container">
+
+  <div class="card">
+    <h3>Live Data</h3>
+    <p>Depth: <span id="depth">--</span> cm</p>
+    <p>Temperature: <span id="temp">--</span> °C</p>
+    <p>TDS: <span id="tds">--</span></p>
+  </div>
+
+  <div class="card">
+    <h3>Map</h3>
+    <div id="map"></div>
+  </div>
+
+  <div class="card">
+    <h3>Graph</h3>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>Data Log</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Depth</th>
+          <th>Temp</th>
+          <th>TDS</th>
+        </tr>
+      </thead>
+      <tbody id="log"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyAyLHpeLCYe_7r6uJjXyMcYpi1TJImOYeI",
+    databaseURL: "https://surveyboat-17af8-default-rtdb.firebaseio.com",
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // Map
+  const map = L.map('map').setView([0,0], 2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  let marker = L.marker([0,0]).addTo(map);
+
+  // Chart
+  const ctx = document.getElementById('chart').getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Depth',
+        data: []
+      }]
+    }
+  });
+
+  // Firebase listener
+  db.ref("sensorData").on("value", (snapshot) => {
+    const data = snapshot.val();
+
+    document.getElementById("depth").innerText = data.depth;
+    document.getElementById("temp").innerText = data.temperature;
+    document.getElementById("tds").innerText = data.tds;
+
+    // Map update
+    marker.setLatLng([data.latitude, data.longitude]);
+    map.setView([data.latitude, data.longitude], 15);
+
+    // Graph update
+    chart.data.labels.push("");
+    chart.data.datasets[0].data.push(data.depth);
+    if (chart.data.labels.length > 10) {
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+    }
+    chart.update();
+
+    // Table log
+    const row = `<tr>
+      <td>${data.depth}</td>
+      <td>${data.temperature}</td>
+      <td>${data.tds}</td>
+    </tr>`;
+    document.getElementById("log").innerHTML = row + document.getElementById("log").innerHTML;
+  });
+</script>
+
+</body>
+</html>
